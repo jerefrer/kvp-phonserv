@@ -20,7 +20,7 @@ options_fastidious = {
 }
 
 WT = WordTokenizer()
-PHON_KVP = bophono.UnicodeToApi(schema="KVP", options = {})
+PHON_KVP = bophono.UnicodeToApi(schema="KVP", options = {'unknownSyllableMarker': True})
 PHON_API = bophono.UnicodeToApi(schema="MST", options = options_fastidious)
 
 def segmentbyone(in_str):
@@ -158,6 +158,16 @@ def _enforce_tshegs_at_the_end(in_str):
         in_str += "་"
     return in_str
 
+def _clean_phono_output(phon_str):
+    """Clean up phonetic output: merge consecutive (?) markers and trim spaces"""
+    # Merge consecutive (?) markers (with optional spaces between), keep one trailing space
+    phon_str = re.sub(r'\(\?\)\s*(\(\?\)\s*)+', '(?) ', phon_str)
+    # Collapse multiple spaces into one
+    phon_str = re.sub(r'  +', ' ', phon_str)
+    # Remove trailing space before newline or end
+    phon_str = re.sub(r' +(\n|$)', r'\1', phon_str)
+    return phon_str
+
 def add_phono(in_str, res):
     lines = in_str.split("\n")
     res_kvp = ""
@@ -169,5 +179,5 @@ def add_phono(in_str, res):
             res_ipa += PHON_API.get_api(word)+' '
         res_kvp += "\n"
         res_ipa += "\n"
-    res["kvp"] = res_kvp
-    res["ipa"] = res_ipa
+    res["kvp"] = _clean_phono_output(res_kvp)
+    res["ipa"] = _clean_phono_output(res_ipa)
