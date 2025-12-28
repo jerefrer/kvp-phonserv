@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from botok import Text, WordTokenizer
 import bophono
 import csv
@@ -9,6 +10,36 @@ try:
     _SANSKRIT_REPLACEMENTS = load_replacements()
 except ImportError:
     _SANSKRIT_REPLACEMENTS = []
+
+def _normalize_tibetan(text):
+    """
+    Normalize Tibetan text (ported from tibetan-normalizer JS).
+    """
+    # Normalize Unicode
+    normalized = unicodedata.normalize('NFC', text)
+    
+    # Normalize combined letters
+    normalized = normalized.replace(' ', ' ')  # Non-breaking space
+    normalized = normalized.replace('ༀ', 'ཨོཾ')  # Om symbol
+    normalized = normalized.replace('ཀྵ', 'ཀྵ')
+    normalized = normalized.replace('བྷ', 'བྷ')
+    normalized = re.sub(r'ི+', 'ི', normalized)  # Multiple i vowels
+    normalized = re.sub(r'ུ+', 'ུ', normalized)  # Multiple u vowels
+    normalized = normalized.replace('ཱུ', 'ཱུ')
+    normalized = normalized.replace('ཱི', 'ཱི')
+    normalized = normalized.replace('ཱྀ', 'ཱྀ')
+    normalized = normalized.replace('དྷ', 'དྷ')
+    normalized = normalized.replace('གྷ', 'གྷ')
+    normalized = normalized.replace('ཪླ', 'རླ')
+    normalized = normalized.replace('ྡྷ', 'ྡྷ')
+    
+    # Normalize tsheks
+    # Malformed: anusvara before vowel - swap them
+    normalized = re.sub(r'(ཾ)([ཱེིོྀུ])', r'\2\1', normalized)
+    normalized = normalized.replace('༌', '་')  # Alternative tshek
+    normalized = re.sub(r'་+', '་', normalized)  # Multiple consecutive tsheks
+    
+    return normalized
 
 def _normalize_iast_to_phonetics(text):
     """
@@ -65,9 +96,10 @@ PHON_API = bophono.UnicodeToApi(schema="MST", options = options_fastidious)
 # - ྸ (0FB8) subjoined a (rare)
 # Also match Sanskrit-specific consonant clusters:
 # - ཀྟ (ka + subjoined ta) - common in Sanskrit (rakta, etc.)
-# - ྻ (0F9B subjoined ya after consonant) - Sanskrit ya combinations
-# - ྲྀ (0FB2 + 0F80) - vocalic r combinations
-_SANSKRIT_ONLY_CHARS = re.compile(r'[ཱཿཾྃཥཊཋཌཎྀྵྷྸ]|ཀྟ|གྟ|དྟ|པྟ|སྟ(?!ོ)|ནྟ')
+# - བཛྲ (vajra) - specific Sanskrit word pattern
+# - ཀྵ (kṣa) - common Sanskrit cluster
+# - ཏྟ (ta + subjoined ta) - common in Sanskrit (citta, etc.)
+_SANSKRIT_ONLY_CHARS = re.compile(r'[ཱཿཾྃཥཊཋཌཎྀྵྷྸ]|ཀྟ|གྟ|དྟ|པྟ|སྟ(?!ོ)|ནྟ|ཏྟ|ཀྵ|བཛྲ|ཛྲ')
 
 def _is_sanskrit_specific(tibetan_pattern):
     """
@@ -328,6 +360,8 @@ def add_phono(in_str, res, sanskrit_mode=None, anusvara_style='ṃ'):
         sanskrit_mode: None/'keep' for (?) markers, 'iast' for IAST, 'phonetics' for phonetic
         anusvara_style: 'ṃ' (default) or 'ṁ' for anusvara character
     """
+    # Normalize Tibetan input first
+    in_str = _normalize_tibetan(in_str)
     lines = in_str.split("\n")
     res_kvp = ""
     res_ipa = ""
@@ -335,47 +369,55 @@ def add_phono(in_str, res, sanskrit_mode=None, anusvara_style='ṃ'):
     for l in lines:
         words = l.split()
         for word in words:
-            # Process word to split Sanskrit and Tibetan parts
-            parts = _process_word_sanskrit(word, sanskrit_mode, anusvara_style)
+            # Process word to find Sanskrit patterns
+            # Remove spaces but keep the word boundary
+            matches = _find_sanskrit_matches(word)
             
+            if not matches:
+                # No Sanskrit - just phoneticize the whole word
+                res_kvp += PHON_KVP.get_api(word) + ' '
+                res_ipa += PHON_API.get_api(word) + ' '
+                continue
+            
+            # Process parts of the word
             kvp_parts = []
             ipa_parts = []
+            last_end = 0
             
-            prev_was_sanskrit = False
-            for i, (text, is_sanskrit) in enumerate(parts):
-                if is_sanskrit:
-                    # Add space between consecutive Sanskrit parts
-                    if prev_was_sanskrit:
-                        kvp_parts.append(' ')
-                        ipa_parts.append(' ')
-                    # Sanskrit part - already converted, use as-is
-                    kvp_parts.append(text)
-                    ipa_parts.append(text)
-                    prev_was_sanskrit = True
-                elif text.strip('་།༔') == '':
-                    # Just punctuation/tshegs between Sanskrit parts - convert to space
-                    # But only if surrounded by Sanskrit parts
-                    next_is_sanskrit = i < len(parts) - 1 and parts[i+1][1]
-                    if prev_was_sanskrit and next_is_sanskrit:
-                        kvp_parts.append(' ')
-                        ipa_parts.append(' ')
-                    elif prev_was_sanskrit and i == len(parts) - 1:
-                        # Trailing tsheg after Sanskrit - ignore
-                        pass
-                    else:
-                        # Regular punctuation - process normally
-                        kvp_parts.append(PHON_KVP.get_api(text))
-                        ipa_parts.append(PHON_API.get_api(text))
-                    # Don't reset prev_was_sanskrit for punctuation
+            for start, end, transliteration, phonetics in matches:
+                # Add any Tibetan text before this match
+                if start > last_end:
+                    tibetan_part = word[last_end:start]
+                    if tibetan_part.strip('་'):
+                        kvp_parts.append(PHON_KVP.get_api(tibetan_part))
+                        ipa_parts.append(PHON_API.get_api(tibetan_part))
+                
+                # Determine Sanskrit output based on mode
+                if sanskrit_mode == 'iast':
+                    output = transliteration
+                    if anusvara_style == 'ṁ':
+                        output = output.replace('ṃ', 'ṁ')
+                elif sanskrit_mode == 'phonetics':
+                    output = phonetics
                 else:
-                    # Tibetan part - run through bophono
-                    kvp_parts.append(PHON_KVP.get_api(text))
-                    ipa_parts.append(PHON_API.get_api(text))
-                    prev_was_sanskrit = False
+                    output = '(?)'
+                
+                kvp_parts.append(output)
+                ipa_parts.append(output)
+                last_end = end
             
-            res_kvp += ''.join(kvp_parts) + ' '
-            res_ipa += ''.join(ipa_parts) + ' '
+            # Add any remaining Tibetan text after the last match
+            if last_end < len(word):
+                tibetan_part = word[last_end:]
+                if tibetan_part.strip('་'):
+                    kvp_parts.append(PHON_KVP.get_api(tibetan_part))
+                    ipa_parts.append(PHON_API.get_api(tibetan_part))
+            
+            res_kvp += ' '.join(kvp_parts) + ' '
+            res_ipa += ' '.join(ipa_parts) + ' '
+        
         res_kvp += "\n"
         res_ipa += "\n"
+    
     res["kvp"] = _clean_phono_output(res_kvp)
     res["ipa"] = _clean_phono_output(res_ipa)
