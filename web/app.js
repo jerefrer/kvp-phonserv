@@ -201,6 +201,8 @@ window.alpineData = function () {
         try {
           localStorage.setItem(STORAGE_KEYS.collapsed, val);
         } catch (e) {}
+        // Adjust textarea height after collapse/expand animation completes
+        setTimeout(() => this.adjustTextareaHeight(), 350);
       });
       this.$watch("originalText", (val) => {
         try {
@@ -266,11 +268,13 @@ window.alpineData = function () {
         }
       });
 
-      // Live: When phoneticization changes, re-phoneticize
+      // Live: When phoneticization changes, re-phoneticize and adjust textarea height
       this.$watch("phoneticization", (val) => {
         if (this.segmentedText && this.segmentedText.trim() !== "") {
           this.phoneticize();
         }
+        // Adjust textarea height after style change (Sanskrit options may appear/disappear)
+        setTimeout(() => this.adjustTextareaHeight(), 100);
       });
 
       // Auto-resize textareas on mobile when content changes
@@ -370,23 +374,59 @@ window.alpineData = function () {
 
         // Desktop behavior: Calculate available viewport height
         const viewportHeight = window.innerHeight;
+        const bottomMargin = 32; // Space at bottom of viewport
 
-        // Account for header, margins, padding, and other UI elements
-        const headerHeight = 84; // Approximate header height
-        const collapseButton = 100; // Collapse button area
-        const summaryDiv = 80; // Button area height when not collapsed
-        const margins = 120; // Various margins and gaps
+        // Get the actual height of the phonetics output element to calculate remaining space
+        const phoneticOutput = this.$refs.phoneticOutput;
+        if (phoneticOutput) {
+          // Get the panel container
+          const panel = phoneticOutput.closest(".rounded-2xl");
+          if (panel) {
+            const panelRect = panel.getBoundingClientRect();
 
-        // Calculate available height for textareas
+            // Calculate panel padding (p-6 = 24px)
+            const panelPadding = 24;
+
+            // Get all elements before the output (header, buttons, options)
+            // by measuring from panel top to output top
+            const outputRect = phoneticOutput.getBoundingClientRect();
+            const contentAboveOutput = outputRect.top - panelRect.top;
+
+            // Available height = viewport - panel top - content above - padding - bottom margin
+            const availableHeight =
+              viewportHeight -
+              panelRect.top -
+              contentAboveOutput -
+              panelPadding -
+              bottomMargin;
+
+            // Set minimum and maximum constraints
+            const minHeight = 150;
+            const finalHeight = Math.max(availableHeight, minHeight);
+
+            this.textareaHeight = finalHeight;
+            return;
+          }
+        }
+
+        // Fallback: static calculation
+        const headerHeight = 84;
+        const collapseButton = 60;
+        const panelPadding = 48;
+        const panelHeader = 52;
+        const margins = 48;
+
         const availableHeight =
-          viewportHeight - headerHeight - summaryDiv - margins - collapseButton;
+          viewportHeight -
+          headerHeight -
+          collapseButton -
+          panelPadding -
+          panelHeader -
+          margins;
 
-        // Set minimum and maximum constraints
-        const minHeight = 200;
+        const minHeight = 150;
         const maxHeight = Math.max(availableHeight, minHeight);
-
-        // Ensure we don't exceed viewport bounds
-        const finalHeight = Math.min(maxHeight, viewportHeight * 0.7);
+        const finalHeight = Math.min(maxHeight, viewportHeight * 0.5);
 
         this.textareaHeight = finalHeight;
       });

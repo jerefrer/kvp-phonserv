@@ -67,4 +67,4 @@ sanskritPlaceholdersCases = [
 
 @pytest.mark.parametrize("tibetan, expected", sanskritPlaceholdersCases, ids=[case[1] for case in sanskritPlaceholdersCases])
 def test_sanskrit_placeholders(tibetan, expected):
-    assert_equal_phonetics(tibetan, expected, mode="words", schema="kvp")
+    assert_equal_phonetics(tibetan, expected, mode="words", schema="kvp", sanskrit_mode='keep')

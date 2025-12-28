@@ -248,14 +248,12 @@
           x-transition:leave-start="opacity-100 transform translate-y-0"
           x-transition:leave-end="opacity-0 transform -translate-y-2"
           class="absolute left-1/2 z-20 mb-6 transform -translate-x-1/2"
-          style="top: 85px; width: calc(100% - 4rem); max-width: 32rem"
+          style="top: 85px"
         >
           <div
-            class="p-4 mx-8 max-w-2xl bg-blue-50 rounded-xl border border-blue-200 shadow-sm"
+            class="p-4 whitespace-nowrap bg-blue-50 rounded-xl border border-blue-200 shadow-sm"
           >
-            <div
-              class="flex flex-wrap gap-8 justify-center items-center text-sm"
-            >
+            <div class="flex gap-8 justify-center items-center text-sm">
               <div class="flex gap-2 items-center">
                 <span class="font-semibold text-blue-700">Segmentation:</span>
                 <span
@@ -266,8 +264,18 @@
               <div class="flex gap-2 items-center">
                 <span class="font-semibold text-blue-700">Phonetics:</span>
                 <span
-                  class="px-2 py-1 text-blue-800 uppercase bg-blue-100 rounded-full"
-                  x-text="phoneticization"
+                  class="px-2 py-1 text-blue-800 bg-blue-100 rounded-full"
+                  x-text="phoneticization === 'kvp' ? 'KVP' : phoneticization === 'simple' ? 'Simple' : phoneticization === 'intermediate' ? 'Intermediate' : phoneticization === 'advanced' ? 'Advanced' : 'IPA'"
+                ></span>
+              </div>
+              <div
+                x-show="phoneticization === 'kvp'"
+                class="flex gap-2 items-center"
+              >
+                <span class="font-semibold text-blue-700">Sanskrit:</span>
+                <span
+                  class="px-2 py-1 text-blue-800 bg-blue-100 rounded-full"
+                  x-text="sanskritMode === 'keep' ? '(?)' : sanskritMode === 'iast' ? 'IAST' : 'Phonetics'"
                 ></span>
               </div>
             </div>
@@ -275,7 +283,7 @@
         </div>
 
         <div
-          :class="isDesktop ? 'flex relative flex-col gap-6 items-stretch w-full transition-all duration-300 ease-in-out lg:flex-row' : 'flex flex-col gap-6 items-stretch w-full'"
+          :class="isDesktop ? 'flex relative gap-6 items-stretch w-full transition-all duration-300 ease-in-out' : 'flex flex-col gap-6 items-stretch w-full'"
           :style="'margin-top: ' + (collapsed && isDesktop ? '88px' : '0px')"
         >
           <!-- Panel 1: Tibetan Input -->
@@ -286,10 +294,7 @@
             <div
               :class="isDesktop ? 'flex relative flex-col p-6 h-full bg-white rounded-2xl shadow-2xl' : 'flex relative flex-col p-6 h-full bg-white rounded-2xl shadow-lg'"
             >
-              <h2
-                class="text-xl font-semibold text-center text-blue-700"
-                :class="isDesktop ? (collapsed ? 'mb-5' : 'mb-24') : 'mb-5'"
-              >
+              <h2 class="mb-5 text-xl font-semibold text-center text-blue-700">
                 <span x-show="!collapsed">1. </span>Tibetan
               </h2>
 
@@ -329,11 +334,13 @@
                   </svg>
                 </template>
               </button>
+              <!-- Spacer to push textarea to bottom -->
+              <div class="flex-grow"></div>
               <textarea
                 x-model="originalText"
                 x-ref="tibetanTextarea"
                 :class="isMobile ? 'p-4 w-full text-xl rounded-lg border-2 border-blue-100 shadow-inner transition-all resize-none focus:border-blue-400 font-tibetan overflow-hidden' : 'p-4 w-full text-xl rounded-lg border-2 border-blue-100 shadow-inner transition-all resize-none focus:border-blue-400 font-tibetan overflow-y-auto'"
-                :style="isMobile ? (textareaHeight === 'auto' ? 'height: auto; min-height: 100px;' : 'height: ' + textareaHeight + 'px') : 'height: ' + textareaHeight + 'px'"
+                :style="isMobile ? (textareaHeight === 'auto' ? 'height: auto; min-height: 100px;' : 'height: ' + textareaHeight + 'px') : 'height: ' + textareaHeight + 'px;'"
                 placeholder="Paste your Tibetan text here..."
                 @input="showSegmentation = !!originalText; if (originalText) segment(); if (isMobile) autoResizeTextarea($refs.tibetanTextarea); else adjustTextareaHeight();"
                 @scroll="syncScroll($event, 'tibetan')"
@@ -388,8 +395,18 @@
                   <div class="flex gap-2 items-center">
                     <span class="font-semibold text-blue-700">Phonetics:</span>
                     <span
-                      class="px-2 py-1 text-blue-800 uppercase bg-blue-100 rounded-full"
-                      x-text="phoneticization"
+                      class="px-2 py-1 text-blue-800 bg-blue-100 rounded-full"
+                      x-text="phoneticization === 'kvp' ? 'KVP' : phoneticization === 'simple' ? 'Simple' : phoneticization === 'intermediate' ? 'Intermediate' : phoneticization === 'advanced' ? 'Advanced' : 'IPA'"
+                    ></span>
+                  </div>
+                  <div
+                    x-show="phoneticization === 'kvp'"
+                    class="flex gap-2 items-center"
+                  >
+                    <span class="font-semibold text-blue-700">Sanskrit:</span>
+                    <span
+                      class="px-2 py-1 text-blue-800 bg-blue-100 rounded-full"
+                      x-text="sanskritMode === 'keep' ? '(?)' : sanskritMode === 'iast' ? 'IAST' : 'Phonetics'"
                     ></span>
                   </div>
                 </div>
@@ -399,7 +416,7 @@
 
           <!-- Panel 2: Segmentation (absolute positioned overlay on desktop, normal flow on mobile) -->
           <div
-            :class="isDesktop ? ('absolute top-0 left-1/3 transition-all duration-300 ease-in-out ' + (!collapsed ? 'z-10' : '-z-10')) : 'w-full overflow-hidden transition-all duration-300 ease-in-out'"
+            :class="isDesktop ? ('absolute top-0 bottom-0 left-1/3 transition-all duration-300 ease-in-out ' + (!collapsed ? 'z-10' : '-z-10')) : 'w-full overflow-hidden transition-all duration-300 ease-in-out'"
             :style="isDesktop ? ('width: calc(33.333% - 16px); margin-left: 8px;' + (collapsed ? ' opacity: 0; transform: scale(0.9); pointer-events: none;' : '')) : ('max-height: ' + (!collapsed ? '1000px' : '0px') + '; opacity: ' + (!collapsed ? '1' : '0') + ';')"
           >
             <div
@@ -468,11 +485,13 @@
                   One by one
                 </button>
               </div>
+              <!-- Spacer to push textarea to bottom -->
+              <div class="flex-grow"></div>
               <textarea
                 x-model="segmentedText"
                 x-ref="segmentedTextarea"
-                :class="isMobile ? 'p-4 mt-4 w-full text-lg rounded-lg border-2 shadow-inner transition-all resize-none font-tibetan overflow-hidden' : 'p-4 mt-4 w-full text-lg rounded-lg border-2 shadow-inner transition-all resize-none font-tibetan overflow-y-auto'"
-                :style="isMobile ? (textareaHeight === 'auto' ? 'height: auto; min-height: 100px;' : 'height: ' + textareaHeight + 'px') : 'height: ' + textareaHeight + 'px'"
+                :class="isMobile ? 'p-4 w-full text-lg rounded-lg border-2 shadow-inner transition-all resize-none font-tibetan overflow-hidden' : 'p-4 w-full text-lg rounded-lg border-2 shadow-inner transition-all resize-none font-tibetan overflow-y-auto'"
+                :style="isMobile ? (textareaHeight === 'auto' ? 'height: auto; min-height: 100px; margin-top: 1rem;' : 'height: ' + textareaHeight + 'px; margin-top: 1rem;') : 'height: ' + textareaHeight + 'px;'"
                 placeholder="Segmented text will appear here..."
                 @input="if (segmentedText) phoneticize(); if (isMobile) autoResizeTextarea($refs.segmentedTextarea);"
                 @scroll="syncScroll($event, 'segmented')"
@@ -527,66 +546,6 @@
                 </template>
               </button>
 
-              <!-- Sanskrit Options (hidden when collapsed) -->
-              <div
-                x-show="!collapsed"
-                x-transition:enter="transition ease-out duration-300 delay-100"
-                x-transition:enter-start="opacity-0 transform -translate-y-2"
-                x-transition:enter-end="opacity-100 transform translate-y-0"
-                x-transition:leave="transition ease-in duration-200"
-                x-transition:leave-start="opacity-100 transform translate-y-0"
-                x-transition:leave-end="opacity-0 transform -translate-y-2"
-                class="mb-4"
-              >
-                <div
-                  class="mb-2 text-sm font-semibold text-center text-gray-700"
-                >
-                  Sanskrit (?) markers:
-                </div>
-                <div class="flex gap-2 justify-center">
-                  <button
-                    @click="sanskritMode = 'keep'; phoneticize();"
-                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
-                    :class="sanskritMode === 'keep' ? 'bg-gray-600 text-white border-gray-600 ring-2 ring-gray-200' : 'border-gray-400 text-gray-700 hover:bg-gray-50'"
-                  >
-                    Keep (?)
-                  </button>
-                  <button
-                    @click="sanskritMode = 'iast'; phoneticize();"
-                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
-                    :class="sanskritMode === 'iast' ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-200' : 'border-indigo-400 text-indigo-700 hover:bg-indigo-50'"
-                  >
-                    IAST
-                  </button>
-                  <button
-                    @click="sanskritMode = 'phonetics'; phoneticize();"
-                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
-                    :class="sanskritMode === 'phonetics' ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-200' : 'border-purple-400 text-purple-700 hover:bg-purple-50'"
-                  >
-                    Phonetics
-                  </button>
-                </div>
-                <div
-                  x-show="sanskritMode === 'iast'"
-                  class="flex gap-2 justify-center mt-2"
-                >
-                  <button
-                    @click="anusvaraStyle = 'ṃ'; phoneticize();"
-                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
-                    :class="anusvaraStyle === 'ṃ' ? 'bg-indigo-500 text-white border-indigo-500' : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'"
-                  >
-                    ṃ
-                  </button>
-                  <button
-                    @click="anusvaraStyle = 'ṁ'; phoneticize();"
-                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
-                    :class="anusvaraStyle === 'ṁ' ? 'bg-indigo-500 text-white border-indigo-500' : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'"
-                  >
-                    ṁ
-                  </button>
-                </div>
-              </div>
-
               <!-- Phonetic Style Buttons (hidden when collapsed) -->
               <div
                 x-show="!collapsed"
@@ -635,6 +594,70 @@
                 </button>
               </div>
 
+              <!-- Sanskrit Options (only for KVP, hidden when collapsed) -->
+              <div
+                x-show="!collapsed && phoneticization === 'kvp'"
+                x-transition:enter="transition ease-out duration-300 delay-100"
+                x-transition:enter-start="opacity-0 transform -translate-y-2"
+                x-transition:enter-end="opacity-100 transform translate-y-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 transform translate-y-0"
+                x-transition:leave-end="opacity-0 transform -translate-y-2"
+                class="mb-4 space-y-2"
+              >
+                <!-- Sanskrit mode selection -->
+                <div class="flex gap-2 items-center">
+                  <span
+                    class="text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px]"
+                    >Sanskrit:</span
+                  >
+                  <button
+                    @click="sanskritMode = 'keep'; phoneticize();"
+                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
+                    :class="sanskritMode === 'keep' ? 'bg-gray-600 text-white border-gray-600 ring-2 ring-gray-200' : 'border-gray-400 text-gray-700 hover:bg-gray-50'"
+                  >
+                    (?)
+                  </button>
+                  <button
+                    @click="sanskritMode = 'iast'; phoneticize();"
+                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
+                    :class="sanskritMode === 'iast' ? 'bg-indigo-600 text-white border-indigo-600 ring-2 ring-indigo-200' : 'border-indigo-400 text-indigo-700 hover:bg-indigo-50'"
+                  >
+                    IAST
+                  </button>
+                  <button
+                    @click="sanskritMode = 'phonetics'; phoneticize();"
+                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
+                    :class="sanskritMode === 'phonetics' ? 'bg-purple-600 text-white border-purple-600 ring-2 ring-purple-200' : 'border-purple-400 text-purple-700 hover:bg-purple-50'"
+                  >
+                    Phonetics
+                  </button>
+                </div>
+                <!-- Anusvara style selection -->
+                <div class="flex gap-2 items-center">
+                  <span
+                    class="text-sm font-semibold text-gray-700 whitespace-nowrap w-[70px]"
+                    >Anusvara:</span
+                  >
+                  <button
+                    @click="anusvaraStyle = 'ṃ'; phoneticize();"
+                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
+                    :class="anusvaraStyle === 'ṃ' ? 'bg-indigo-500 text-white border-indigo-500' : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'"
+                  >
+                    ṃ
+                  </button>
+                  <button
+                    @click="anusvaraStyle = 'ṁ'; phoneticize();"
+                    class="flex-1 px-3 py-2 text-sm font-medium text-center rounded-lg border-2 shadow-sm transition-all hover:scale-105"
+                    :class="anusvaraStyle === 'ṁ' ? 'bg-indigo-500 text-white border-indigo-500' : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'"
+                  >
+                    ṁ
+                  </button>
+                </div>
+              </div>
+
+              <!-- Spacer to push output to bottom -->
+              <div class="flex-grow"></div>
               <!-- Phonetic Output -->
               <div
                 contenteditable="true"

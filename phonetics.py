@@ -10,6 +10,24 @@ try:
 except ImportError:
     _SANSKRIT_REPLACEMENTS = []
 
+def _normalize_iast_to_phonetics(text):
+    """
+    Normalize IAST text by removing diacritics for phonetic output.
+    """
+    replacements = [
+        ('ā', 'a'), ('ī', 'i'), ('ū', 'u'),
+        ('ṛ', 'ri'), ('ṝ', 'ri'), ('ḷ', 'li'), ('ḹ', 'li'),
+        ('ṃ', 'm'), ('ṁ', 'm'), ('ḥ', 'h'),
+        ('ṅ', 'ng'), ('ñ', 'ny'),
+        ('ṭ', 't'), ('ḍ', 'd'), ('ṇ', 'n'),
+        ('ś', 'sh'), ('ṣ', 'sh'),
+        ('é', 'e'), ('ē', 'e'),
+    ]
+    result = text
+    for old, new in replacements:
+        result = result.replace(old, new)
+    return result
+
 options_fastidious = {
     'weakAspirationChar': '3',
     'aspirateLowTones': True,
@@ -31,9 +49,9 @@ WT = WordTokenizer()
 PHON_KVP = bophono.UnicodeToApi(schema="KVP", options = {'unknownSyllableMarker': True})
 PHON_API = bophono.UnicodeToApi(schema="MST", options = options_fastidious)
 
-# Sanskrit-specific Unicode characters that DON'T appear in regular Tibetan text:
-# - ཱ (0F71) vowel lengthening mark (ā, ī, ū)
-# - ཿ (0F7F) visarga
+# Sanskrit-specific characters that don't appear in regular Tibetan words:
+# - ཱ (0F71) vowel length mark (used in Sanskrit for long vowels like ā, ī, ū)
+# - ཿ (0F7F) visarga (used in Sanskrit mantras like āḥ)
 # - ཾ (0F7E) anusvara (bindu) - used in Sanskrit mantras like oṃ
 # - ྃ (0F83) anusvara alternate form
 # - ཥ (0F65) retroflex sha
@@ -45,12 +63,16 @@ PHON_API = bophono.UnicodeToApi(schema="MST", options = options_fastidious)
 # - ྵ (0FB5) subjoined retroflex sha
 # - ྷ (0FB7) subjoined ha (for aspirated voiced consonants like bha, dha, gha)
 # - ྸ (0FB8) subjoined a (rare)
-_SANSKRIT_ONLY_CHARS = re.compile(r'[ཱཿཾྃཥཊཋཌཎྀྵྷྸ]')
+# Also match Sanskrit-specific consonant clusters:
+# - ཀྟ (ka + subjoined ta) - common in Sanskrit (rakta, etc.)
+# - ྻ (0F9B subjoined ya after consonant) - Sanskrit ya combinations
+# - ྲྀ (0FB2 + 0F80) - vocalic r combinations
+_SANSKRIT_ONLY_CHARS = re.compile(r'[ཱཿཾྃཥཊཋཌཎྀྵྷྸ]|ཀྟ|གྟ|དྟ|པྟ|སྟ(?!ོ)|ནྟ')
 
 def _is_sanskrit_specific(tibetan_pattern):
     """
-    Check if a pattern contains Sanskrit-specific characters that don't appear in regular Tibetan.
-    This is a strict filter to avoid false positives on regular Tibetan words.
+    Check if a pattern contains Sanskrit-specific characters or combinations.
+    This filters out patterns that would match regular Tibetan words.
     """
     return bool(_SANSKRIT_ONLY_CHARS.search(tibetan_pattern))
 
@@ -63,7 +85,10 @@ def _build_sanskrit_patterns():
     for entry in _SANSKRIT_REPLACEMENTS:
         tibetan = entry.get('tibetan', '')
         transliteration = entry.get('transliteration', '')
-        phonetics = entry.get('phonetics', '') or transliteration  # fallback to IAST if no phonetics
+        # If phonetics field is empty, normalize IAST to get phonetics
+        phonetics = entry.get('phonetics', '')
+        if not phonetics:
+            phonetics = _normalize_iast_to_phonetics(transliteration)
         if tibetan and transliteration and _is_sanskrit_specific(tibetan):
             try:
                 # Compile the pattern (some entries use regex)
@@ -110,7 +135,7 @@ def _process_word_sanskrit(word, sanskrit_mode, anusvara_style='ṃ'):
     Process a single word, extracting Sanskrit parts and Tibetan parts.
     Returns list of (text, is_sanskrit) tuples.
     """
-    if not _SANSKRIT_PATTERNS or sanskrit_mode == 'keep':
+    if not _SANSKRIT_PATTERNS:
         return [(word, False)]
     
     matches = _find_sanskrit_matches(word)
@@ -286,7 +311,7 @@ def _enforce_tshegs_at_the_end(in_str):
 def _clean_phono_output(phon_str):
     """Clean up phonetic output: merge consecutive (?) markers and trim spaces"""
     # Merge consecutive (?) markers (with optional spaces between), keep one trailing space
-    phon_str = re.sub(r'\(\?\)\s*(\(\?\)\s*)+', '(?) ', phon_str)
+    phon_str = re.sub(r'\(\?\)(\s*\(\?\))+', '(?)', phon_str)
     # Collapse multiple spaces into one
     phon_str = re.sub(r'  +', ' ', phon_str)
     # Remove trailing space before newline or end
