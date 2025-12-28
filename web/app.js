@@ -6,6 +6,8 @@ window.alpineData = function () {
     segmentedText: "kvp_segmentedText",
     segmentationType: "kvp_segmentationType",
     phoneticization: "kvp_phoneticization",
+    sanskritMode: "kvp_sanskritMode",
+    anusvaraStyle: "kvp_anusvaraStyle",
   };
 
   // Helper to load from storage, fallback to default
@@ -37,6 +39,8 @@ window.alpineData = function () {
     segmentedText: load(STORAGE_KEYS.segmentedText, ""),
     segmentationType: load(STORAGE_KEYS.segmentationType, "words"),
     phoneticization: load(STORAGE_KEYS.phoneticization, "kvp"),
+    sanskritMode: load(STORAGE_KEYS.sanskritMode, "keep"),
+    anusvaraStyle: load(STORAGE_KEYS.anusvaraStyle, "ṃ"),
     phoneticResult: null,
     showHelp: false,
     activeHelpType: "",
@@ -61,6 +65,8 @@ window.alpineData = function () {
     async segment() {
       const formData = new FormData();
       formData.append("str", this.originalText);
+      formData.append("sanskrit_mode", this.sanskritMode);
+      formData.append("anusvara_style", this.anusvaraStyle);
 
       const endpoint =
         this.segmentationType === "words"
@@ -131,7 +137,7 @@ window.alpineData = function () {
         resizeTimeout = setTimeout(() => {
           const previousWidth = this.windowWidth;
           this.windowWidth = window.innerWidth;
-          
+
           // Force reactivity update
           this.$nextTick(() => {
             if (window.innerWidth >= 1024) {
@@ -216,6 +222,16 @@ window.alpineData = function () {
           localStorage.setItem(STORAGE_KEYS.phoneticization, val);
         } catch (e) {}
       });
+      this.$watch("sanskritMode", (val) => {
+        try {
+          localStorage.setItem(STORAGE_KEYS.sanskritMode, val);
+        } catch (e) {}
+      });
+      this.$watch("anusvaraStyle", (val) => {
+        try {
+          localStorage.setItem(STORAGE_KEYS.anusvaraStyle, val);
+        } catch (e) {}
+      });
 
       // Debounce helpers
       let segmentTimeout = null;
@@ -282,6 +298,8 @@ window.alpineData = function () {
     async phoneticize() {
       const formData = new FormData();
       formData.append("str", this.segmentedText);
+      formData.append("sanskrit_mode", this.sanskritMode);
+      formData.append("anusvara_style", this.anusvaraStyle);
 
       try {
         const response = await fetch("/phoneticize", {
@@ -346,7 +364,7 @@ window.alpineData = function () {
         if (isMobile) {
           // On mobile, set height to 'auto' to allow content-based sizing
           // This will be handled by CSS with min-height
-          this.textareaHeight = 'auto';
+          this.textareaHeight = "auto";
           return;
         }
 
@@ -378,9 +396,9 @@ window.alpineData = function () {
     autoResizeTextarea(element) {
       if (window.innerWidth < 1024 && element) {
         // Reset height to auto to get the correct scrollHeight
-        element.style.height = 'auto';
+        element.style.height = "auto";
         // Set height to scrollHeight to fit content
-        element.style.height = Math.max(element.scrollHeight, 100) + 'px';
+        element.style.height = Math.max(element.scrollHeight, 100) + "px";
       }
     },
 

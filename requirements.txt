@@ -2,3 +2,4 @@ flask
 flask-cors
 botok
 bophono
+tibetan-sanskrit-transliteration>=0.1.0
