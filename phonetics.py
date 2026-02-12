@@ -327,6 +327,7 @@ def _postsegment(in_str):
 def _load_segmentation_exceptions():
     exceptions = {}
     phonetics_exceptions = {}
+    iast_exceptions = {}
     csv_path = os.path.join(os.path.dirname(__file__), "segmentation_exceptions.csv")
     try:
         with open(csv_path, encoding="utf-8") as f:
@@ -335,15 +336,27 @@ def _load_segmentation_exceptions():
                 orig = row["ORIGINAL"].strip()
                 seg = row["SEGMENTED"].strip()
                 phon = (row.get("PHONETICS") or "").strip()
+                iast = (row.get("IAST") or "").strip()
                 if orig and seg and not orig.startswith('#'):
                     exceptions[orig] = seg
                     if phon:
                         phonetics_exceptions[orig] = phon
+                    if iast:
+                        iast_exceptions[orig] = iast
     except Exception as e:
         print(f"Could not load segment exceptions: {e}")
-    return exceptions, phonetics_exceptions
+    return exceptions, phonetics_exceptions, iast_exceptions
 
-_segmentation_exceptions, _phonetics_exceptions = _load_segmentation_exceptions()
+_segmentation_exceptions, _phonetics_exceptions, _iast_exceptions = _load_segmentation_exceptions()
+
+def _exception_key_variants(word: str):
+    """Return lookup variants to match exception keys with or without a trailing tshek."""
+    variants = [word]
+    if word.endswith('་'):
+        variants.append(word.rstrip('་'))
+    else:
+        variants.append(word + '་')
+    return variants
 
 def _enforce_tshegs_at_the_end(in_str):
     in_str = in_str.rstrip()
@@ -373,7 +386,9 @@ def add_phono(in_str, res, sanskrit_mode=None, anusvara_style='ṃ'):
     """
     # Normalize Tibetan input first
     in_str = _normalize_tibetan(in_str)
-    lines = in_str.split("\n")
+    # splitlines() avoids a trailing empty line when input ends with a newline,
+    # which otherwise creates a blank output line in the interface.
+    lines = in_str.splitlines()
     res_kvp = ""
     res_ipa = ""
     
@@ -382,26 +397,42 @@ def add_phono(in_str, res, sanskrit_mode=None, anusvara_style='ṃ'):
         for word in words:
             if word == '་':
                 continue
-            if sanskrit_mode == 'phonetics' and word in _phonetics_exceptions:
-                output = _phonetics_exceptions[word]
-                res_kvp += output + ' '
-                res_ipa += output + ' '
+            matched_exception = False
+            for k in _exception_key_variants(word):
+                if sanskrit_mode == 'iast' and k in _iast_exceptions:
+                    output = _iast_exceptions[k]
+                    if anusvara_style == 'ṁ':
+                        output = output.replace('ṃ', 'ṁ')
+                    res_kvp += output + ' '
+                    res_ipa += output + ' '
+                    matched_exception = True
+                    break
+                # For explicitly-defined Sanskrit exceptions we prefer a concrete phonetic form
+                # even when sanskrit_mode is None/'keep' (i.e. user asked for (?) markers).
+                if sanskrit_mode in (None, 'keep', 'phonetics') and k in _phonetics_exceptions:
+                    output = _phonetics_exceptions[k]
+                    res_kvp += output + ' '
+                    res_ipa += output + ' '
+                    matched_exception = True
+                    break
+            if matched_exception:
                 continue
+
             # Process word to find Sanskrit patterns
             # Remove spaces but keep the word boundary
             matches = _find_sanskrit_matches(word)
-            
+
             if not matches:
                 # No Sanskrit - just phoneticize the whole word
                 res_kvp += PHON_KVP.get_api(word) + ' '
                 res_ipa += PHON_API.get_api(word) + ' '
                 continue
-            
+
             # Process parts of the word
             kvp_parts = []
             ipa_parts = []
             last_end = 0
-            
+
             for start, end, transliteration, phonetics in matches:
                 # Add any Tibetan text before this match
                 if start > last_end:
@@ -409,7 +440,7 @@ def add_phono(in_str, res, sanskrit_mode=None, anusvara_style='ṃ'):
                     if tibetan_part.strip('་'):
                         kvp_parts.append(PHON_KVP.get_api(tibetan_part))
                         ipa_parts.append(PHON_API.get_api(tibetan_part))
-                
+
                 # Determine Sanskrit output based on mode
                 if sanskrit_mode == 'iast':
                     output = transliteration
@@ -419,18 +450,18 @@ def add_phono(in_str, res, sanskrit_mode=None, anusvara_style='ṃ'):
                     output = phonetics
                 else:
                     output = '(?)'
-                
+
                 kvp_parts.append(output)
                 ipa_parts.append(output)
                 last_end = end
-            
+
             # Add any remaining Tibetan text after the last match
             if last_end < len(word):
                 tibetan_part = word[last_end:]
                 if tibetan_part.strip('་'):
                     kvp_parts.append(PHON_KVP.get_api(tibetan_part))
                     ipa_parts.append(PHON_API.get_api(tibetan_part))
-            
+
             res_kvp += ' '.join(kvp_parts) + ' '
             res_ipa += ' '.join(ipa_parts) + ' '
         
