@@ -93,13 +93,15 @@ PHON_API = bophono.UnicodeToApi(schema="MST", options = options_fastidious)
 # - ྀ (0F80) vocalic r
 # - ྵ (0FB5) subjoined retroflex sha
 # - ྷ (0FB7) subjoined ha (for aspirated voiced consonants like bha, dha, gha)
+#         NOTE: ྷ also appears in the standard Tibetan cluster ལྷ (lha), so we
+#         exclude it when preceded by ལ using a negative lookbehind.
 # - ྸ (0FB8) subjoined a (rare)
 # Also match Sanskrit-specific consonant clusters:
 # - ཀྟ (ka + subjoined ta) - common in Sanskrit (rakta, etc.)
 # - བཛྲ (vajra) - specific Sanskrit word pattern
 # - ཀྵ (kṣa) - common Sanskrit cluster
 # - ཏྟ (ta + subjoined ta) - common in Sanskrit (citta, etc.)
-_SANSKRIT_ONLY_CHARS = re.compile(r'[ཱཿཾྃཥཊཋཌཎྀྵྷྸ]|ཀྟ|གྟ|དྟ|པྟ|སྟ(?!ོ)|ནྟ|ཏྟ|ཀྵ|བཛྲ|ཛྲ')
+_SANSKRIT_ONLY_CHARS = re.compile(r'[ཱཿཾྃཥཊཋཌཎྀྵྸ]|(?<!ལ)ྷ|ཀྟ|གྟ|དྟ|པྟ|སྟ(?!ོ)|ནྟ|ཏྟ|ཀྵ|བཛྲ|ཛྲ')
 
 def _is_sanskrit_specific(tibetan_pattern):
     """
