@@ -53,6 +53,24 @@ otherCases = [
   [ "ལྷ་ཚོགས", "lha tsok" ],
   [ "སྣང་ཆ", "nangcha" ],
   [ "བཤེས་གཉེན", "shé nyen" ],
+  [ "རཀྟ", "rakta" ],
+  [ "བདེ་སྟོང་རྡོ་རྗེ", "detong dorjé" ],
+  [ "མི་གཙང", "mitsang" ],
+  [ "མི་འགྱུར", "mingyur" ],
+  [ "བདེ་སྟོང", "detong" ],
+  [ "གྲགས་སྟོང་", "dragtong" ],
+  [ "མྱོང་སྟོང", "nyongtong" ],
+  [ "རིག་སྟོང", "rigtong" ],
+  [ "འཁོར་འདས", "khordé" ],
+  [ "སྲིད་ཞི", "sizhi" ],
+  [ "འོད་དཔག་མེད་", "öpagmé" ],
+  [ "སཾ་བྷ་ཝ", "sambhawa" ],
+  [ "ལྷན་ཅིག", "lhen chik" ],
+  [ "དྷཱ་ཀི་ནཱི", "dakini" ],
+  [ "སྣོད་བཅུད་", "nöchü" ],
+  [ "འོད་འཕྲོས་པ་", "ö tröpa" ],
+  [ "རྗེ་བཙུན་མ", "jetsünma" ],
+  [ "འཁོར་བཅས", "khor ché" ]
 ]
 
 @pytest.mark.parametrize("tibetan, expected", otherCases, ids=[case[1] for case in otherCases])
