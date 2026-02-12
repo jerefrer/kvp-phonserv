@@ -123,6 +123,11 @@ def _build_sanskrit_patterns():
         phonetics = entry.get('phonetics', '')
         if not phonetics:
             phonetics = _normalize_iast_to_phonetics(transliteration)
+        # Some data sources include syllable-separated phonetics for single-word Sanskrit.
+        # For lexical items (no spaces in IAST), we want a joined output (e.g. sambhawa, dakini).
+        # For mantras/phrases (spaces in IAST), keep the spacing (e.g. om ah hung).
+        if transliteration and ' ' not in transliteration and ' ' in phonetics:
+            phonetics = ''.join(phonetics.split())
         if tibetan and transliteration and _is_sanskrit_specific(tibetan):
             try:
                 # Compile the pattern (some entries use regex)
@@ -321,6 +326,7 @@ def _postsegment(in_str):
 
 def _load_segmentation_exceptions():
     exceptions = {}
+    phonetics_exceptions = {}
     csv_path = os.path.join(os.path.dirname(__file__), "segmentation_exceptions.csv")
     try:
         with open(csv_path, encoding="utf-8") as f:
@@ -328,13 +334,16 @@ def _load_segmentation_exceptions():
             for row in reader:
                 orig = row["ORIGINAL"].strip()
                 seg = row["SEGMENTED"].strip()
+                phon = (row.get("PHONETICS") or "").strip()
                 if orig and seg and not orig.startswith('#'):
                     exceptions[orig] = seg
+                    if phon:
+                        phonetics_exceptions[orig] = phon
     except Exception as e:
         print(f"Could not load segment exceptions: {e}")
-    return exceptions
+    return exceptions, phonetics_exceptions
 
-_segmentation_exceptions = _load_segmentation_exceptions()
+_segmentation_exceptions, _phonetics_exceptions = _load_segmentation_exceptions()
 
 def _enforce_tshegs_at_the_end(in_str):
     in_str = in_str.rstrip()
@@ -371,6 +380,13 @@ def add_phono(in_str, res, sanskrit_mode=None, anusvara_style='ṃ'):
     for l in lines:
         words = l.split()
         for word in words:
+            if word == '་':
+                continue
+            if sanskrit_mode == 'phonetics' and word in _phonetics_exceptions:
+                output = _phonetics_exceptions[word]
+                res_kvp += output + ' '
+                res_ipa += output + ' '
+                continue
             # Process word to find Sanskrit patterns
             # Remove spaces but keep the word boundary
             matches = _find_sanskrit_matches(word)
